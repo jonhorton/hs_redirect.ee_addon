@@ -23,11 +23,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 =========================================================================
- File: pi.hs_redirect.php V1.0.1
+ File: pi.hs_redirect.php V1.1
 -------------------------------------------------------------------------
  Purpose: Redirects current EE template to a given location.
 =========================================================================
 CHANGE LOG :
+
+July 27, 2015
+	- Version 1.1
+	- Added option to pass the query string of the original url
 
 January 20, 2011
 	- Version 1.0.1
@@ -42,7 +46,7 @@ October 26, 2010
 
 $plugin_info = array(
 						'pi_name'			=> 'HS Redirect',
-						'pi_version'		=> '1.0.1',
+						'pi_version'		=> '1.1',
 						'pi_author'			=> 'Kevin Smith',
 						'pi_author_url'		=> 'http://www.gohearsay.com/',
 						'pi_description'	=> 'Redirects current EE template to a given location.',
@@ -57,43 +61,55 @@ class Hs_redirect
 	function hs_redirect()
 	{
 		$this->EE =& get_instance();
-		
+
 		// Fetch our parameters from the plugin tag
 		$location = str_replace("&#47;", "/", $this->EE->TMPL->fetch_param('location'));
 		$method = $this->EE->TMPL->fetch_param('method');
-		
+
 		// Check for the logged_in param.
 		$logged_in = $this->EE->TMPL->fetch_param('logged_in');
-		
+
 		// Check for the group param.
 		$member_group = $this->EE->TMPL->fetch_param('group_id');
-		
+
 		// Check to see if location should be set to http_referer
 		$referrer = strtolower($this->EE->TMPL->fetch_param('referrer'));
-		
+
+		// Check to see if we should pass the query string
+		$query_string = strtolower($this->EE->TMPL->fetch_param('query_string'));
+
 		if ($logged_in === "yes")
 		{
-			$logged_in = ($this->EE->session->userdata('member_id') == 0) ? FALSE : TRUE; 
+			$logged_in = ($this->EE->session->userdata('member_id') == 0) ? FALSE : TRUE;
 		}
 		elseif ($logged_in === "no")
 		{
-			$logged_in = ($this->EE->session->userdata('member_id') != 0) ? FALSE : TRUE; 
+			$logged_in = ($this->EE->session->userdata('member_id') != 0) ? FALSE : TRUE;
 		}
 		else
 		{
 			$logged_in = TRUE;
 		}
-		
+
 		// Is this a full URL?
-		if (strpos($location, 'http') !== 0 AND !(strpos($location, 'http') > 0)) 
+		if (strpos($location, 'http') !== 0 AND !(strpos($location, 'http') > 0))
    		{
      		// If not, let's make it one.
  			$location = $this->EE->functions->create_url($location);
 		}
-		
+
 		// Use HTTP_REFERER if referrer param equals 'true'.
 		$location = (($referrer === 'true' && $this->EE->input->server('HTTP_REFERER')) ? $this->EE->input->server('HTTP_REFERER') : $location);
-		
+
+		//Add query string to the URL
+		if ($query_string === "yes")
+		{
+			$qsa = $this->EE->input->server('QUERY_STRING');
+
+			//Only add query string if it actually exists
+			$location = ($qsa ? $location . "?" . $qsa : $location);
+		}
+
 		if ($member_group)
 		{
 			// Is the visitor part of the member group entered into the group_id param?
@@ -105,7 +121,7 @@ class Hs_redirect
 		}
 
 		if ($member_group === TRUE AND $logged_in === TRUE)
-		{		
+		{
 			// Perform a check to see if method parameter supplied
 			if ($method === FALSE)
 			{
@@ -131,7 +147,7 @@ class Hs_redirect
 
 function usage()
 {
-ob_start(); 
+ob_start();
 ?>
 
 HS Redirect is a simple plugin that will redirect to an internal or external location. It can be used, for example, to redirect a visitor to a login page if they need to login before viewing the page.
@@ -166,11 +182,14 @@ referrer="true"
 - The fallback, if the $_SERVER["HTTP_REFERER"] variable cannot be determined, is to use the location parameter.
 - When combined with logged_in="yes", this is helpful to keep login pages from accidentally being displayed to logged-in visitors, for example.
 
+query_string="yes"
+- If yes, the plugin will append any query string included in the initial request to the redirected url.
+
 <?php
 
 $buffer = ob_get_contents();
 
-ob_end_clean(); 
+ob_end_clean();
 
 return $buffer;
 }
